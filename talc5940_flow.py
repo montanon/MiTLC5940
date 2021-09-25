@@ -1,6 +1,7 @@
 import machine
 import utime
-from machine import Pin
+
+import RPi.GPIO as GPIO
 
 class TLC5940_chip:
 
