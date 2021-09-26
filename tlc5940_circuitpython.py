@@ -17,7 +17,7 @@ class TLC5940:
         self.pins = pins_dict
 
         self.SPI = busio.SPI(board.D11, board.D10)
-        self.SPI.configure(baudrate=30000, polarity=0, phase=0, bits=8) # TODO: Review setup
+        #self.SPI.configure(baudrate=30000, polarity=0, phase=0, bits=8) # TODO: Review setup
 
         self.BLANK = DigitalInOut(board.D5)
         self.BLANK.switch_to_output(value=1, drive_mode=DriveMode.PUSH_PULL)
