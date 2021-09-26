@@ -26,4 +26,6 @@ class TLC5940:
 
 
 
+if __name__ == '__main__':
 
+    TLC5940(0, 0)
