@@ -23,8 +23,8 @@ class TLC5940:
         self._led = board.D23
         self._cs = board.D26
 
-        self.frequency = 1e7
-        self.baudrate = 1e7
+        self.frequency = int(1e7)
+        self.baudrate = int(1e7)
 
         self.pins = pins_dict
 
@@ -55,6 +55,8 @@ class TLC5940:
         self.n_chips = n_chips
         self.pwm_runtime = 4096/self.frequency
 
+        self.FirstCycleFlag = False
+
         self.set_chip()
 
 
@@ -82,7 +84,9 @@ class TLC5940:
 
         self.CS.value = False
 
-        self.SPI.write(bytes(bytes_list))
+        print(bytes_list, 'SENDING')
+
+        self.SPI.write(bytes([0xFF]*16))
 
         self.CS.value = True
 
@@ -114,8 +118,6 @@ class TLC5940:
         _nchannels = 16
         _nbits = 6
 
-        self.SPI = self.set_spi(nbits=6)
-
         if check:
             assert len(dc_list) == _nchannels, f'{_nchannels} channels must be set'
             assert all([dc <= 0x40 for dc in dc_list]), f'Each channel must be {_nbits}bit'
@@ -123,26 +125,65 @@ class TLC5940:
         self.DCPRG.value = True
         self.VPRG.value = True
 
-        dc_count = 0
-
-        for n in range(_nchannels):
-
-            self.send_spi_bytes(dc_list[n])
-
-        self.SPI = self.set_spi(nbits=8)
+        self.send_spi_bytes(dc_list)
 
         if blink:
             self.pulse_led(secs=0.1)
 
+    def Color_cycle(self, color_list, n_first=2, check=False, blink=False):
+
+        self.LED.value = True
+
+        _nchannels = 16
+        _n_bits = 8
+
+        if check:
+            assert len(color_list) == _nchannels, f'{_nchannels} channels must be set'
+            assert all([color <= 0x1000 for dc in dc_list]), f'Each channel must be {_nbits}bit'
+
+        if self.VPRG.value:
+            self.VPRG.value = False
+            self.FirstCycleFlag = True
+
+        self.BLANK.value = False
+
+        self.send_spi_bytes(color_list[:n_first])
+
+        self.pulse_gsclk()
+
+        self.send_spi_bytes(color_list[n_first:])
+
+        self.BLANK.value = True
+
+        self.XLAT.value = True
+        self.XLAT.value = False
+
+        if self.FirstCycleFlag:
+
+            self.SPI.deinit()
+            del self.SPI
+
+            self.SCLK = DigitalInOut(self._sclk)
+            self.SCLK.direction = Direction.OUTPUT
+
+            self.SCLK.value = True
+            self.SCLK.value = False
+
+            del self.SCLK
+
+            self.SPI = self.set_spi()
+
+        self.LED.value = False
+
+        if blink:
+            self.pulse_led(0.005)
 
 
 if __name__ == '__main__':
 
     try:
 
-        dc_list = [0x40]*16
-
-        print(dc_list)
+        dc_list = ['0x40']*16
 
         chip = TLC5940(0, 0)
 
@@ -152,16 +193,26 @@ if __name__ == '__main__':
 
         start = timer()
 
-        #chip.DotCorrection_setup(dc_list, check=False, blink=False)
+        chip.DotCorrection_setup(dc_list, check=False, blink=False)
 
         print(f'DotCorrection Took = {timer() - start} [s]')
 
+        start = timer()
+
+        chip.pulse_gsclk()
+
+        print(f'GrayScaleClock Took = {timer() - start} [s]')
+
         while True:
+
             start = timer()
 
-            chip.pulse_gsclk()
+            color_list = [0x1000]*16
 
-            print(f'GrayScaleClock Took = {timer() - start} [s]')
+            chip.Color_cycle(color_list, blink=True)
+
+            print(f'ColorCycle Took = {timer() - start} [s]')
+            
 
 
     except KeyboardInterrupt:
