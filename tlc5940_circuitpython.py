@@ -23,8 +23,8 @@ class TLC5940:
         self._led = board.D23
         self._cs = board.D26
 
-        self.frequency = 1e6
-        self.baudrate = 1e6
+        self.frequency = 1e7
+        self.baudrate = 1e7
 
         self.pins = pins_dict
 
@@ -87,7 +87,7 @@ class TLC5940:
         self.CS.value = True
 
 
-    def pulse_gsclk(self, blink=True):
+    def pulse_gsclk(self, blink=False):
 
         start = timer()
 
@@ -156,13 +156,13 @@ if __name__ == '__main__':
 
         print(f'DotCorrection Took = {timer() - start} [s]')
 
-        start = timer()
+        while True:
+            start = timer()
 
-        chip.pulse_gsclk()
+            chip.pulse_gsclk()
 
-        print(f'GrayScaleClock Took = {timer() - start} [s]')
+            print(f'GrayScaleClock Took = {timer() - start} [s]')
 
-        
 
     except KeyboardInterrupt:
 
