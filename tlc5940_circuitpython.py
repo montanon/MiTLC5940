@@ -2,51 +2,61 @@ import board
 from digitalio import DigitalInOut, DriveMode, Direction, Pull
 import busio
 import time
+from threading import Thread
 
 import array
 import pulseio
+
+from timeit import default_timer as timer
 
 class TLC5940:
 
     def __init__(self, pins_dict, dc_correction, n_chips=1, config=None):
 
-        _blank = 'BLANK'
-        _sckl = 'SCKL'
-        _vpgr = 'VPGR'
-        _gsclk = 'GSCLK'
-        _sin = 'SIN'
-        _xlat = 'XLAT'
-        _dcprg = 'DCPRG'
+        self._blank = board.D13
+        self._sclk = board.D11
+        self._vprg = board.D16
+        self._gsclk = board.D12
+        self._sin = board.D10
+        self._xlat = board.D17
+        self._dcprg = board.D18
+        self._led = board.D23
+        self._cs = board.D26
+
+        self.frequency = 1e6
+        self.baudrate = 1e6
 
         self.pins = pins_dict
 
-        self.SPI = self.set_spi(board.D11, board.D10)
+        self.SPI = self.set_spi()
 
-        self.BLANK = DigitalInOut(board.D13)
+        self.BLANK = DigitalInOut(self._blank)
         self.BLANK.direction = Direction.OUTPUT
         self.BLANK.value = True
 
-        self.VPRG = DigitalInOut(board.D16)
+        self.VPRG = DigitalInOut(self._vprg)
         self.VPRG.direction = Direction.OUTPUT
 
-        self.DCPRG = DigitalInOut(board.D18)
+        self.DCPRG = DigitalInOut(self._dcprg)
         self.DCPRG.direction = Direction.OUTPUT
 
-        self.XLAT = DigitalInOut(board.D17)
+        self.XLAT = DigitalInOut(self._xlat)
         self.XLAT.direction = Direction.OUTPUT
 
-        self.GSCLK = pulseio.PWMOut(board.D12, frequency=3e7, duty_cycle=32768)
+        self.GSCLK = pulseio.PWMOut(self._gsclk, frequency=self.frequency, duty_cycle=0) # Max 3e7
 
-        self.LED = DigitalInOut(board.D23)
+        self.LED = DigitalInOut(self._led)
         self.LED.direction = Direction.OUTPUT
 
-        self.CS = DigitalInOut(board.D26)
+        self.CS = DigitalInOut(self._cs)
         self.CS.direction = Direction.OUTPUT
         self.CS.value = True
 
         self.n_chips = n_chips
+        self.pwm_runtime = 4096/self.frequency
 
         self.set_chip()
+
 
     def set_chip(self):
 
@@ -55,16 +65,18 @@ class TLC5940:
         self.XLAT.value = False
         self.BLANK.value = True
 
-    def set_spi(self, clock, sin):
 
-        spi = busio.SPI(clock, sin)
+    def set_spi(self, nbits=8):
+
+        spi = busio.SPI(self._sclk, self._sin)
 
         while not spi.try_lock():
             pass
 
-        spi.configure(baudrate=int(3e+7), phase=0, polarity=0, bits=8)
+        spi.configure(baudrate=self.baudrate, phase=0, polarity=0, bits=nbits)
 
         return spi
+
 
     def send_spi_bytes(self, bytes_list):
 
@@ -74,11 +86,21 @@ class TLC5940:
 
         self.CS.value = True
 
-    def run_gsclk(self, n_pulses=4096):
 
-        gslck = array.array('H', [65000, 1000] * n_pulses * self.n_chips)
+    def pulse_gsclk(self, blink=True):
 
-        #self.GSCLK.send(gsclk)
+        start = timer()
+
+        self.GSCLK.duty_cycle = 32768
+
+        while timer() - start < self.pwm_runtime:
+            pass
+
+        self.GSCLK.duty_cycle = 0 
+
+        if blink:
+            self.pulse_led(secs=0.001)      
+        
 
     def pulse_led(self, secs=0.5):
 
@@ -86,10 +108,13 @@ class TLC5940:
         time.sleep(secs)
         self.LED.value = False
 
-    def DotCorrection_setup(self, dc_list, n_first=2, check=False):
+
+    def DotCorrection_setup(self, dc_list, check=False, blink=False):
 
         _nchannels = 16
         _nbits = 6
+
+        self.SPI = self.set_spi(nbits=6)
 
         if check:
             assert len(dc_list) == _nchannels, f'{_nchannels} channels must be set'
@@ -100,23 +125,15 @@ class TLC5940:
 
         dc_count = 0
 
-        for n in range(n_first):
-
-            print(n)
-
-            print(dc_list[n], n)
+        for n in range(_nchannels):
 
             self.send_spi_bytes(dc_list[n])
 
-        self.run_gsclk()
+        self.SPI = self.set_spi(nbits=8)
 
-        for n in range(_nchannels - n_first):
+        if blink:
+            self.pulse_led(secs=0.1)
 
-            print(n)
-
-            print(dc_list[n], n)
-
-            self.send_spi_bytes(dc_list[n_first+n])
 
 
 if __name__ == '__main__':
@@ -133,7 +150,18 @@ if __name__ == '__main__':
             chip.pulse_led()
             time.sleep(0.5)
 
-        chip.DotCorrection_setup(dc_list, check=True)
+        start = timer()
+
+        #chip.DotCorrection_setup(dc_list, check=False, blink=False)
+
+        print(f'DotCorrection Took = {timer() - start} [s]')
+
+        start = timer()
+
+        chip.pulse_gsclk()
+
+        print(f'GrayScaleClock Took = {timer() - start} [s]')
+
         
 
     except KeyboardInterrupt:
