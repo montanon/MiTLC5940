@@ -84,9 +84,7 @@ class TLC5940:
 
         self.CS.value = False
 
-        print(bytes_list, 'SENDING')
-
-        self.SPI.write(bytes([0xFF]*16))
+        self.SPI.write(bytes(bytes_list))
 
         self.CS.value = True
 
@@ -120,7 +118,7 @@ class TLC5940:
 
         if check:
             assert len(dc_list) == _nchannels, f'{_nchannels} channels must be set'
-            assert all([dc <= 0x40 for dc in dc_list]), f'Each channel must be {_nbits}bit'
+            assert all([dc <= 0xFF for dc in dc_list]), f'Each channel must be {_nbits}bit'
 
         self.DCPRG.value = True
         self.VPRG.value = True
@@ -139,7 +137,7 @@ class TLC5940:
 
         if check:
             assert len(color_list) == _nchannels, f'{_nchannels} channels must be set'
-            assert all([color <= 0x1000 for dc in dc_list]), f'Each channel must be {_nbits}bit'
+            assert all([color <= 0xFF for dc in dc_list]), f'Each channel must be {_nbits}bit'
 
         if self.VPRG.value:
             self.VPRG.value = False
@@ -183,7 +181,7 @@ if __name__ == '__main__':
 
     try:
 
-        dc_list = ['0x40']*16
+        dc_list = [0xFF]*16
 
         chip = TLC5940(0, 0)
 
@@ -207,9 +205,9 @@ if __name__ == '__main__':
 
             start = timer()
 
-            color_list = [0x1000]*16
+            color_list = [0xFF]*24
 
-            chip.Color_cycle(color_list, blink=True)
+            chip.Color_cycle(color_list, blink=False)
 
             print(f'ColorCycle Took = {timer() - start} [s]')
             
