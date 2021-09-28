@@ -118,7 +118,7 @@ class TLC5940:
 
         if check:
             assert len(dc_list) == _nchannels, f'{_nchannels} channels must be set'
-            assert all([dc <= 0xFF for dc in dc_list]), f'Each channel must be {_nbits}bit'
+            assert all([dc <= 0x40 for dc in dc_list]), f'Each channel must be {_nbits}bit'
 
         self.DCPRG.value = True
         self.VPRG.value = True
@@ -133,11 +133,11 @@ class TLC5940:
         self.LED.value = True
 
         _nchannels = 16
-        _n_bits = 8
+        _n_bits = 12
 
         if check:
             assert len(color_list) == _nchannels, f'{_nchannels} channels must be set'
-            assert all([color <= 0xFF for dc in dc_list]), f'Each channel must be {_nbits}bit'
+            assert all([color <= 0x1000 for dc in dc_list]), f'Each channel must be {_nbits}bit'
 
         if self.VPRG.value:
             self.VPRG.value = False
@@ -181,7 +181,7 @@ if __name__ == '__main__':
 
     try:
 
-        dc_list = [0xFF]*16
+        dc_list = [0x40]*16
 
         chip = TLC5940(0, 0)
 
